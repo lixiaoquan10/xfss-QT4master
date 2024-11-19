@@ -171,15 +171,15 @@ void CSerialPort::doReciveData()
         bytes.resize(nSize);
         m_pSerialPort->read(bytes.data(), bytes.size());
     }
-//    QString  data = "doReciveData:  " + m_pSerialPort->portName() + " " + bytes.toHex() + "   " + QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss:zzz");
-//    QFile file("/home/xfss/root/logfile/doReciveData.txt");
+    QString  data = "doReciveData:  " + m_pSerialPort->portName() + " " + bytes.toHex() + "   " + QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss:zzz");
+    QFile file("/home/xfss/root/logfile/doReciveData.txt");
 
-//    if (file.open(QIODevice::Append | QIODevice::Text))
-//    {
-//        QTextStream stream(&file);
-//        stream << data << '\n' << '\n';
-//        file.close();
-//    }
+    if (file.open(QIODevice::Append | QIODevice::Text))
+    {
+        QTextStream stream(&file);
+        stream << data << '\n' << '\n';
+        file.close();
+    }
     emit sig_ReciveData(m_name, bytes);
 }
 

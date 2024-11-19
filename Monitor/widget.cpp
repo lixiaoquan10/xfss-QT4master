@@ -110,13 +110,11 @@ void Widget::keyPressEvent(QKeyEvent *event)
 
 void Widget::slotLEDTimer()
 {
-    //?????????
     CGlobal::instance()->BottomToolBar()->setCurrentDateTime();
     if(CGlobal::instance()->m_HaveDialog)
     {
         CGlobal::instance()->m_bMove_Mouse = true;
     }
-    //???????§Ý????
     if(CGlobal::instance()->m_bCutLayer != CGlobal::instance()->isAutoSwitchLayer())
     {
         CGlobal::instance()->m_bCutLayer = CGlobal::instance()->isAutoSwitchLayer();
@@ -140,26 +138,19 @@ void Widget::switchLayer()
         if(CGlobal::instance()->m_bCutLayer)
         {
             static int m_nLayerNum = -1;
-            //??????????
             QList<CLayer*> tempLayer = CGlobal::instance()->getLayers(CGlobal::instance()->dm()->controllers());
 
             if(tempLayer.count()>0)
             {
                 ++m_nLayerNum;
-
-                //????§Ý????
                 if(m_nLayerNum >= tempLayer.count())
                 {
                     m_nLayerNum = 0;
                 }
-
-                //????????????????§Ý?
                 for(int i=0; i<tempLayer.count(); ++i)
                 {
-                    //?§Ø????????§Ý????????
                     if(tempLayer.at(m_nLayerNum)->getStatus(OBJS_Fire))
                     {
-                        //????????????????????§Ý?
                         if(CGlobal::instance()->designTreeView()->currentLayer() != tempLayer.at(m_nLayerNum))
                         {
                             CGlobal::instance()->setLayer(tempLayer.at(m_nLayerNum));
@@ -173,7 +164,6 @@ void Widget::switchLayer()
                         m_nLayerNum = 0;
                     }
                 }
-                //???????????????????????§Ý?,????????????
                 m_nLayerNum = normalSwitch(tempLayer, m_nLayerNum);
             }
         }
@@ -188,7 +178,7 @@ void Widget::slotEventChange()
 int Widget::normalSwitch(QList<CLayer*> &listLayer, int num)
 {
     CLayer* m_Lay = CGlobal::instance()->designTreeView()->currentLayer();//?????????
-    if(m_Lay)//???????????????????§Ö?¦Ë??
+    if(m_Lay)
     {
         int layNum = listLayer.indexOf(m_Lay);
         if(layNum >= 0)
