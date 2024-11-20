@@ -1,0 +1,1 @@
+主从通讯processServer改为子线程通讯，在widget中实现，通讯函数在cclientbusiliss中。
