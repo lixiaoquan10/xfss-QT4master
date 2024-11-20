@@ -115,7 +115,6 @@ public:
     void firePointEmergencyByGroup(int firePointID);
     void firePointEmergencyByLayoutPage(int firePointID);
     void firePointEmergencyByDistribution(int firePointID);
-//    void DeviceResetStatus();
     void FirepointResetStatus();
     void DeviceStartStatus(CDevice* device, QString directionStatus, QDateTime time);
     void DeviceBatteryStatus(CDevice* device, int status, int power);
@@ -164,37 +163,6 @@ public:
 
     void uploadLampStatus(CDevice* device);
 
-    //服务端相关函数
-    void serverXmlInit();
-    void serverHeartbeat();
-    void serverCanDeviceInfo();
-    void serverChannelInfo();
-    void serverLampInfo();
-    void serverFirePoint();
-    void serverLampToFirePoint();
-    void serverLampConnection();
-
-    void serverAllState();
-    void serverPageInfo();
-    void serverPicture(CMsgObjectStatus* xmlObjectStatus);
-    void serverLampCoordinate();
-    void serverFirePointCoordinate();
-    void serverLampSoftwareInfo(int ID, int SoftwareNumber, int SoftwareVersion);
-    void serverDeviceSoftwareInfo(CDistribution* distribution);
-    void serverDeviceRealtimeData(CDistribution* distribution);
-    void serverHostStateUpload(bool isMainPowerOK, QString batteryState);
-    void serverCentralizedPowerStateUpload(CDistribution* distribution);
-    void serverLampStateUpload(int ID, bool isCommunicationOK, bool isLightFault, bool isWarning);
-    void serverFirePointWarningUpload(int deviceAddress, int loopAddress, int terminalAddress);
-    void serverEmergencyInputUpload();
-    void serverManualLaunchUpload();
-    void serverLampDirectionUpload(int lampID, QString direction);
-    void serverEventList(CMsgObjectStatus* xmlObjectStatus);
-
-    void serverHostControl(CMsgObjectStatus* xmlObjectStatus);
-    void serverSetAutoStateUpload(QString enable);
-    void serverResetDeclareUpload();
-
 public slots:
     void slotCheckLoginInfo();
     void mainPowerStop();
@@ -204,7 +172,6 @@ public slots:
     void DeviceResetStatus();
     void DeviceDefaultResetStatus();
     void objectStatusChanged(CObject* object, short status, unsigned char oldValue, unsigned char newValue, unsigned int time);
-
 private:
     bool hasStandbyPowerFault(CCanport* canport) const;
     void createPath(const QString& path) const;
@@ -222,9 +189,6 @@ private:
 private slots:
     void timeOut();
     void recvData(int nMsgType, QByteArray &data);
-//    void slot_ledStatusSend();
-//    void driveDeviceDirection(CPointDeviceItem *item, uchar direction, uchar delay, bool isFlow);
-//    void objectStatusChanged(CObject* object, short status, unsigned char oldValue, unsigned char newValue, unsigned int time);
 
 signals:
     void notifyInformation(int type, const QList<QVariant>& information);
@@ -232,6 +196,29 @@ signals:
     void requestVerifyAdmin(int commandType, CMsgStructBase *msgData);
     void statusRecord(const StatusInfo& statusInfo, int type, int opr);
 
+//tcpserver信号
+signals:
+    void serverHostStateUpload(CController* controller);
+    void serverCentralizedPowerStateUpload(CDistribution* distribution);
+    void serverLampStateUpload(CDevice* device);
+    void serverResetDeclareUpload();
+    void serverEmergencyInputUpload();
+    void serverManualLaunchUpload();
+    void serverFirePointWarningUpload(int deviceAddress, int loopAddress, int terminalAddress);
+    void serverDistributionSoftwareInfo(CDistribution* distribution);
+    void serverDistributionRealtimeData(CDistribution* distribution);
+    void serverLampSoftwareInfo(int ID, int SoftwareNumber, int SoftwareVersion);
+    void serverLampDirectionUpload(int lampID, QString direction);
+//tcpserver函数
+public:
+    void server_ResetDeclareUpload();
+    void server_LampDirectionUpload(int lampID, QString direction);
+    void server_ManualLaunchUpload();
+//tcpserver槽函数
+public slots:
+    void slot_exeCommand(int commandType, CMsgStructBase *msgData);
+    void slot_PerformLaunch(int firePointID);
+    void slot_PerformReset();
 private:
     const QString m_strNormal;
     const QString m_strFault;

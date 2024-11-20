@@ -333,11 +333,11 @@ void CClientBusiness::mainPowerStart()
         //上传手动应急到云平台
         XmlManualLaunchUpload();
     }
-    if(CGlobal::instance()->processServer()->m_isMasterConnected)
-    {
-        //服务端上传手动应急
-        serverManualLaunchUpload();
-    }
+//    if(CGlobal::instance()->processServer()->m_isMasterConnected)
+//    {
+//        //服务端上传手动应急
+//        serverManualLaunchUpload();
+//    }
 }
 
 //主电故障应急停止
@@ -474,8 +474,8 @@ void CClientBusiness::uploadLampStatus(CDevice* device)
 {
     qDebug() << "CClientBusiness::uploadLampStatus"
              << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss:zzz");
-    if(!(CGlobal::instance()->processSocket()->m_isCloudConnected
-            || CGlobal::instance()->processServer()->m_isMasterConnected))
+    emit serverLampStateUpload(device);
+    if(!(CGlobal::instance()->processSocket()->m_isCloudConnected))
         return;
     bool isCommunicationOK = true,isLightFault = false,isWarning = false;
     if(!device->isDeviceOnline())
@@ -486,8 +486,8 @@ void CClientBusiness::uploadLampStatus(CDevice* device)
         isWarning = true;
     if(CGlobal::instance()->processSocket()->m_isCloudConnected)
         XmlLampStateUpload(CGlobal::instance()->saveKeyId(OBJT_Device,device->keyId()),isCommunicationOK,isLightFault,isWarning);
-    if(CGlobal::instance()->processServer()->m_isMasterConnected)
-        serverLampStateUpload(CGlobal::instance()->saveKeyId(OBJT_Device,device->keyId()),isCommunicationOK,isLightFault,isWarning);
+//    if(CGlobal::instance()->processServer()->m_isMasterConnected)
+//        serverLampStateUpload(CGlobal::instance()->saveKeyId(OBJT_Device,device->keyId()),isCommunicationOK,isLightFault,isWarning);
 }
 
 //生成设备唯一码
@@ -779,6 +779,8 @@ void CClientBusiness::recvData(int nMsgType, QByteArray &data)
                                 }
                                 else if(msgObjectStatus->strdata.mid(8, 2).toInt(&ok, 16) == 0x3f && byte.count() == 8)
                                 {
+                                    //服务端回复集中电源电参量信息
+                                    emit serverDistributionRealtimeData(distribution);
                                     //判断客户端是否连接
 //                                    if(CGlobal::instance()->TimeInterval()->isMasterConnect())
 //                                    {
@@ -872,6 +874,9 @@ void CClientBusiness::recvData(int nMsgType, QByteArray &data)
                                 if(byte.count() < 8)
                                     return;
                                 distribution->setDistributionValue(DISTRIBUTION_VALUE_ABUS12VERSION,msgObjectStatus->strdata.mid(14, 2).toInt(&ok, 16));
+
+                                //服务端回复集中电源软件版本信息
+                                emit serverDistributionSoftwareInfo(distribution);
 //                                //判断客户端是否连接
 //                                if(CGlobal::instance()->TimeInterval()->isMasterConnect())
 //                                {
@@ -900,6 +905,10 @@ void CClientBusiness::recvData(int nMsgType, QByteArray &data)
                             {
                                 device->setDeviceLogin(true);
                             }
+                            //服务端回复灯具软件版本信息
+                            emit serverLampSoftwareInfo(CGlobal::instance()->saveKeyId(OBJT_Device,device->keyId()),
+                                                   msgObjectStatus->strdata.mid(16, 2).toInt(&ok, 16)*256+msgObjectStatus->strdata.mid(14, 2).toInt(&ok, 16),msgObjectStatus->strdata.mid(18, 2).toInt(&ok, 16));
+
 //                            //服务端回复灯具软件版本信息
 //                            serverLampSoftwareInfo(CGlobal::instance()->saveKeyId(OBJT_Device,device->keyId()),
 //                                                   msgObjectStatus->strdata.mid(16, 2).toInt(&ok, 16)*256+msgObjectStatus->strdata.mid(14, 2).toInt(&ok, 16),msgObjectStatus->strdata.mid(18, 2).toInt(&ok, 16));
@@ -1102,6 +1111,8 @@ void CClientBusiness::recvData(int nMsgType, QByteArray &data)
                 if(msgObjectStatus->nStatusID == OBJS_FireEmergency)
                 {
                     bool isFireEmergency = msgObjectStatus->nValue;
+                    emit serverFirePointWarningUpload(msgObjectStatus->nDisID,
+                                                      msgObjectStatus->nLoopID,msgObjectStatus->nDeviceID);
                     CFirePoint* firepoint = controller->firePointByAddress(msgObjectStatus->nDisID,
                                                                            msgObjectStatus->nLoopID,msgObjectStatus->nDeviceID);
                     if(firepoint)
@@ -1232,7 +1243,7 @@ void CClientBusiness::recvData(int nMsgType, QByteArray &data)
                         //主机状态上传到云平台
                         XmlHostStateUpload(!controller->getStatus(OBJS_MainPowerFault),batteryStatus);
                         //服务端主机状态上传
-                        serverHostStateUpload(!controller->getStatus(OBJS_MainPowerFault),batteryStatus);
+                        emit serverHostStateUpload(controller);
                     }
                     else
                     {
@@ -1391,7 +1402,7 @@ void CClientBusiness::recvData(int nMsgType, QByteArray &data)
                                     CGlobal::instance()->designSplashView()->setPageStateUpdate(true);
                                 }
                                 //服务端上报集中电源状态
-                                serverCentralizedPowerStateUpload(distribution);
+                                emit serverCentralizedPowerStateUpload(distribution);
 
                                 if(msgObjectStatus->nStatusID != OBJS_DistributionCommunicationFault)
                                     distribution->setStatus(msgObjectStatus->nStatusID,msgObjectStatus->nValue);
@@ -1445,7 +1456,7 @@ void CClientBusiness::recvData(int nMsgType, QByteArray &data)
                                 //上传集中电源通讯故障到云平台
                                 XmlCanDeviceStateUpload(distribution);
                                 //服务端上报集中电源状态
-                                serverCentralizedPowerStateUpload(distribution);
+                                emit serverCentralizedPowerStateUpload(distribution);
                                 //列表视图界面灯具状态更新
                                 if(CGlobal::instance()->centerFrameContainer()->currentWidget() == CGlobal::instance()->DlgDevices())
                                 {
@@ -1483,7 +1494,7 @@ void CClientBusiness::recvData(int nMsgType, QByteArray &data)
                                     //上传回路故障状态到云平台
                                     XmlChannelStateUpload(loop);
                                     //服务端上报集中电源状态
-                                    serverCentralizedPowerStateUpload(distribution);
+                                    emit serverCentralizedPowerStateUpload(distribution);
                                 }
                                 //列表视图界面灯具状态更新
                                 if(CGlobal::instance()->centerFrameContainer()->currentWidget() == CGlobal::instance()->DlgDevices())
@@ -1605,11 +1616,6 @@ void CClientBusiness::recvData(int nMsgType, QByteArray &data)
                     }
                 }
             }
-
-//            CMsgLedInfo msgLed;
-//            msgLed.nLedID = 4;
-//            msgLed.nLedStatus = m_faultObjects.isEmpty()?0:1;
-//            exeCommand(NCT_LedStatus, &msgLed);
             break;
         }
         case NCT_PowerInfo:
@@ -1642,10 +1648,6 @@ void CClientBusiness::recvData(int nMsgType, QByteArray &data)
                 exeCommand(type, msgStruct);
                 m_faultObjects.clear();
                 m_startObjects.clear();
-//                CMsgLedInfo msgLed;
-//                msgLed.nLedID = 6;
-//                msgLed.nLedStatus = m_faultObjects.isEmpty()?0:1;
-//                exeCommand(NCT_LedStatus, &msgLed);
             }
             break;
         }
@@ -1678,7 +1680,7 @@ void CClientBusiness::recvData(int nMsgType, QByteArray &data)
                         //上传开关量应急到云平台
                         XmlEmergencyInputUpload();
                         //服务端上传开关量应急
-                        serverEmergencyInputUpload();
+                        emit serverEmergencyInputUpload();
                     }
                 }
                 else
@@ -1687,7 +1689,7 @@ void CClientBusiness::recvData(int nMsgType, QByteArray &data)
                     //上传开关量应急到云平台
                     XmlEmergencyInputUpload();
                     //服务端上传开关量应急
-                    serverEmergencyInputUpload();
+                    emit serverEmergencyInputUpload();
                 }
             }
             break;
@@ -1704,11 +1706,19 @@ void CClientBusiness::recvData(int nMsgType, QByteArray &data)
                     if(QDialog::Accepted == m_Administrator.exec())
                     {
                         ActiveInputEmergency();
+                        //上传开关量应急到云平台
+                        XmlEmergencyInputUpload();
+                        //服务端上传开关量应急
+                        emit serverEmergencyInputUpload();
                     }
                 }
                 else
                 {
                     ActiveInputEmergency();
+                    //上传开关量应急到云平台
+                    XmlEmergencyInputUpload();
+                    //服务端上传开关量应急
+                    emit serverEmergencyInputUpload();
                 }
             }
             break;
@@ -1725,11 +1735,19 @@ void CClientBusiness::recvData(int nMsgType, QByteArray &data)
                     if(QDialog::Accepted == m_Administrator.exec())
                     {
                         PassiveInputEmergency();
+                        //上传开关量应急到云平台
+                        XmlEmergencyInputUpload();
+                        //服务端上传开关量应急
+                        emit serverEmergencyInputUpload();
                     }
                 }
                 else
                 {
                     PassiveInputEmergency();
+                    //上传开关量应急到云平台
+                    XmlEmergencyInputUpload();
+                    //服务端上传开关量应急
+                    emit serverEmergencyInputUpload();
                 }
             }
             break;
@@ -1740,7 +1758,7 @@ void CClientBusiness::recvData(int nMsgType, QByteArray &data)
             //上传手动应急到云平台
             XmlManualLaunchUpload();
             //服务端上传手动应急
-            serverManualLaunchUpload();
+            emit serverManualLaunchUpload();
             break;
         }
         case NCT_ControllerParam:
@@ -2535,8 +2553,8 @@ void CClientBusiness::XmlResetDeclare()
 {
     qDebug() << "CClientBusiness::XmlResetDeclare"
              << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss:zzz");
-    if(!CGlobal::instance()->processServer()->m_isMasterConnected)
-        return;
+//    if(!CGlobal::instance()->processServer()->m_isMasterConnected)
+//        return;
     if(m_cloudStateUploadFlag == false)
         return;
     XmlInit();
@@ -2661,7 +2679,7 @@ void CClientBusiness::XmlLampControl(CMsgObjectStatus* xmlObjectStatus)
         //上传灯具指向到云平台
         XmlUploadLampDirection(querydevice.value(fieldLampID).toInt(),direction);
         //服务端上传灯具指向
-        serverLampDirectionUpload(querydevice.value(fieldLampID).toInt(),direction);
+        emit serverLampDirectionUpload(querydevice.value(fieldLampID).toInt(),direction);
         exeCommand(NCT_DeviceDirection, &msgobjectstatus);
     }
     //应答
@@ -2724,809 +2742,6 @@ void CClientBusiness::XmlQueryAllState()
     m_isQueryAllState = false;
 }
 
-
-//服务端xml格式模板初始化
-void CClientBusiness::serverXmlInit()
-{
-    qDebug() << "CClientBusiness::serverXmlInit"
-             << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss:zzz");
-    m_xmldoc.clear();
-    m_xmldoc.appendChild(m_xmldoc.createProcessingInstruction("xml",m_xmlheader));
-    //根元素
-    m_xmlroot = m_xmldoc.createElement("R");
-    m_xmldoc.appendChild(m_xmlroot);
-}
-
-//服务端通讯心跳
-void CClientBusiness::serverHeartbeat()
-{
-    qDebug() << "CClientBusiness::serverHeartbeat"
-             << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss:zzz");
-    serverXmlInit();
-    m_xmlitem_1 = m_xmldoc.createElement("HeartbeatUpload");
-    m_xmlroot.appendChild(m_xmlitem_1);
-    CGlobal::instance()->processServer()->replyXmlMsg(m_xmldoc.toByteArray());
-}
-
-//服务端回复CAN设备信息
-void CClientBusiness::serverCanDeviceInfo()
-{
-    qDebug() << "CClientBusiness::serverCanDeviceInfo"
-             << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss:zzz");
-    serverXmlInit();
-    m_xmlitem_1 = m_xmldoc.createElement("CanDeviceList");
-
-    CCanport* canport = CGlobal::instance()->controller()->canportById(CGlobal::instance()->panelAddress());
-    if(!canport)
-        return;
-    for(int i=0; i<62; i++)
-    {
-        CDistribution* distribution = canport->distributionByAddress(i+1);
-        if(distribution)
-        {
-            int distributionkeyId = CGlobal::instance()->saveKeyId(OBJT_Distribution,distribution->keyId());
-            m_xmlitem_2 = m_xmldoc.createElement("D");
-            m_xmlitem_2.setAttribute("ID", distributionkeyId);
-            m_xmlitem_2.setAttribute("CanPort", "1");
-            m_xmlitem_2.setAttribute("Address", distribution->distributionAddress());
-            m_xmlitem_2.setAttribute("DeviceType", "集中电源");
-            m_xmlitem_2.setAttribute("Area", distribution->distributionValue(DISTRIBUTION_VALUE_AREA).toString());
-            m_xmlitem_2.setAttribute("Location", distribution->distributionValue(DISTRIBUTION_VALUE_LOCATION).toString());
-            m_xmlitem_1.appendChild(m_xmlitem_2);
-        }
-    }
-    m_xmlroot.appendChild(m_xmlitem_1);
-    CGlobal::instance()->processServer()->replyXmlMsg(m_xmldoc.toByteArray(4));
-}
-
-//服务端回复通道信息
-void CClientBusiness::serverChannelInfo()
-{
-    qDebug() << "CClientBusiness::serverChannelInfo"
-             << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss:zzz");
-    serverXmlInit();
-    m_xmlitem_1 = m_xmldoc.createElement("ChannelList");
-
-    CCanport* canport = CGlobal::instance()->controller()->canportById(CGlobal::instance()->panelAddress());
-    if(!canport)
-        return;
-    for(int i=0; i<62; i++)
-    {
-        CDistribution* distribution = canport->distributionByAddress(i+1);
-        if(distribution)
-        {
-            int distributionkeyId = CGlobal::instance()->saveKeyId(OBJT_Distribution,distribution->keyId());
-            for(int i=0; i<8; i++)
-            {
-                CLoop* loop = distribution->loopByAdd(i+1);
-                if(loop)
-                {
-                    int loopkeyId = CGlobal::instance()->saveKeyId(OBJT_Loop,loop->keyId());
-                    m_xmlitem_2 = m_xmldoc.createElement("C");
-                    m_xmlitem_2.setAttribute("ID", loopkeyId);
-                    m_xmlitem_2.setAttribute("CanDeviceID", distributionkeyId);
-                    m_xmlitem_2.setAttribute("Number", loop->loopValue(LOOP_VALUE_NUMBER).toInt());
-                    m_xmlitem_2.setAttribute("Loop", loop->loopAdd());
-                    m_xmlitem_2.setAttribute("Remark", tr("通道%1").arg(loop->loopValue(LOOP_VALUE_NUMBER).toInt()));
-                    m_xmlitem_1.appendChild(m_xmlitem_2);
-                }
-            }
-        }
-    }
-    m_xmlroot.appendChild(m_xmlitem_1);
-    CGlobal::instance()->processServer()->replyXmlMsg(m_xmldoc.toByteArray(4));
-}
-//服务端回复灯具信息
-void CClientBusiness::serverLampInfo()
-{
-    qDebug() << "CClientBusiness::serverLampInfo"
-             << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss:zzz");
-    serverXmlInit();
-    m_xmlitem_1 = m_xmldoc.createElement("LampList");
-
-    CCanport* canport = CGlobal::instance()->controller()->canportById(CGlobal::instance()->panelAddress());
-    if(!canport)
-        return;
-    for(int i=0; i<62; i++)
-    {
-        CDistribution* distribution = canport->distributionByAddress(i+1);
-        if(distribution)
-        {
-            for(int i=0; i<8; i++)
-            {
-                CLoop* loop = distribution->loopByAdd(i+1);
-                if(loop)
-                {
-                    int loopkeyId = CGlobal::instance()->saveKeyId(OBJT_Loop,loop->keyId());
-                    for(int i=0; i<255; i++)
-                    {
-                        CDevice* device = loop->deviceByAdd(i+1);
-                        if(device)
-                        {
-                            int devicekeyId = CGlobal::instance()->saveKeyId(OBJT_Device,device->keyId());
-                            m_xmlitem_2 = m_xmldoc.createElement("L");
-                            m_xmlitem_2.setAttribute("ID", devicekeyId);
-                            m_xmlitem_2.setAttribute("CID", loopkeyId);
-                            m_xmlitem_2.setAttribute("A", device->deviceAdd());
-                            m_xmlitem_2.setAttribute("T", device->deviceTypeId());
-                            m_xmlitem_2.setAttribute("Ar", device->deviceValue(DEVICE_VALUE_AREA).toString());
-                            m_xmlitem_2.setAttribute("Lo", device->deviceValue(DEVICE_VALUE_LOCATION).toString());
-                            m_xmlitem_2.setAttribute("R", device->deviceValue(DEVICE_VALUE_DESCRIPTION).toString());
-                            m_xmlitem_1.appendChild(m_xmlitem_2);
-                        }
-                    }
-                }
-            }
-        }
-    }
-    m_xmlroot.appendChild(m_xmlitem_1);
-    CGlobal::instance()->processServer()->replyXmlMsg(m_xmldoc.toByteArray(4));
-}
-
-//服务端回复着火点信息
-void CClientBusiness::serverFirePoint()
-{
-    qDebug() << "CClientBusiness::serverFirePoint"
-             << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss:zzz");
-    serverXmlInit();
-    m_xmlitem_1 = m_xmldoc.createElement("FirePointList");
-
-    QString fileName = CGlobal::instance()->workspaces() + "/" + "ESSQLiteCE100.db";
-    CDBSqlite db(fileName);
-    if(!db.open())
-        return;
-    QSqlQuery query = db.query(QString("SELECT f.id,f.device,f.loop,f.address,f.area,f.location from FirePoint f"));
-    QSqlRecord record = query.record();
-    int fieldId = record.indexOf("id");
-    int fieldDevice = record.indexOf("device");
-    int fieldLoopAddress = record.indexOf("loop");
-    int fieldTerminalAddress = record.indexOf("address");
-    int fieldArea = record.indexOf("area");
-    int fieldLocation = record.indexOf("location");
-    while(query.next())
-    {
-        m_xmlitem_2 = m_xmldoc.createElement("FP");
-        m_xmlitem_2.setAttribute("ID", query.value(fieldId).toInt());
-        m_xmlitem_2.setAttribute("D", query.value(fieldDevice).toInt());
-        m_xmlitem_2.setAttribute("L", query.value(fieldLoopAddress).toInt());
-        m_xmlitem_2.setAttribute("A", query.value(fieldTerminalAddress).toInt());
-        m_xmlitem_2.setAttribute("Ar", query.value(fieldArea).toString());
-        m_xmlitem_2.setAttribute("Lo", query.value(fieldLocation).toString());
-        m_xmlitem_1.appendChild(m_xmlitem_2);
-
-    }
-    db.close();
-    m_xmlroot.appendChild(m_xmlitem_1);
-    CGlobal::instance()->processServer()->replyXmlMsg(m_xmldoc.toByteArray(4));
-}
-
-//服务端回复灯具关联着火点
-void CClientBusiness::serverLampToFirePoint()
-{
-    qDebug() << "CClientBusiness::serverLampToFirePoint"
-             << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss:zzz");
-    serverXmlInit();
-    m_xmlitem_1 = m_xmldoc.createElement("LampToFirePointList");
-
-    QString fileName = CGlobal::instance()->workspaces() + "/" + "ESSQLiteCE100.db";
-    CDBSqlite db(fileName);
-    if(!db.open())
-        return;
-    QSqlQuery query = db.query(QString("SELECT f.id,f.lampid,f.firepointid from LampToFirePoint f"));
-    QSqlRecord record = query.record();
-    int fieldId = record.indexOf("id");
-    int fieldFirePointID = record.indexOf("firepointid");
-    int fieldLampID = record.indexOf("lampid");
-    while(query.next())
-    {
-        m_xmlitem_2 = m_xmldoc.createElement("LTFP");
-        m_xmlitem_2.setAttribute("ID", query.value(fieldId).toInt());
-        m_xmlitem_2.setAttribute("FPID", query.value(fieldFirePointID).toInt());
-        m_xmlitem_2.setAttribute("LID", query.value(fieldLampID).toInt());
-        m_xmlitem_1.appendChild(m_xmlitem_2);
-    }
-    db.close();
-    m_xmlroot.appendChild(m_xmlitem_1);
-    CGlobal::instance()->processServer()->replyXmlMsg(m_xmldoc.toByteArray(4));
-}
-
-//服务端回复灯具连接信息
-void CClientBusiness::serverLampConnection()
-{
-    qDebug() << "CClientBusiness::serverLampConnection"
-             << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss:zzz");
-    serverXmlInit();
-    m_xmlitem_1 = m_xmldoc.createElement("LampConnection");
-
-    QString fileName = CGlobal::instance()->workspaces() + "/" + "ESSQLiteCE100.db";
-    CDBSqlite db(fileName);
-    if(!db.open())
-        return;
-    QSqlQuery query = db.query(QString("SELECT f.id,f.StartLampID,f.Joint,f.EndLampID from LampConnection f"));
-    QSqlRecord record = query.record();
-    int fieldId = record.indexOf("id");
-    int fieldStartLampID = record.indexOf("StartLampID");
-    int fieldEndLampID = record.indexOf("EndLampID");
-    int fieldJoint = record.indexOf("Joint");
-    while(query.next())
-    {
-        m_xmlitem_2 = m_xmldoc.createElement("LC");
-        m_xmlitem_2.setAttribute("ID", query.value(fieldId).toInt());
-        m_xmlitem_2.setAttribute("SID", query.value(fieldStartLampID).toInt());
-        m_xmlitem_2.setAttribute("EID", query.value(fieldEndLampID).toInt());
-        m_xmlitem_2.setAttribute("J", query.value(fieldJoint).toString());
-        m_xmlitem_1.appendChild(m_xmlitem_2);
-    }
-    db.close();
-    m_xmlroot.appendChild(m_xmlitem_1);
-    CGlobal::instance()->processServer()->replyXmlMsg(m_xmldoc.toByteArray(4));
-}
-
-//服务端回复故障记录
-void CClientBusiness::serverEventList(CMsgObjectStatus* xmlObjectStatus)
-{
-    qDebug() << "CClientBusiness::serverEventList"
-             << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss:zzz");
-    serverXmlInit();
-    m_xmlitem_1 = m_xmldoc.createElement("EventList");
-
-    QString fileName = CGlobal::instance()->workspaces() + "/" + "log.db";
-    CDBSqlite db(fileName);
-    if(!db.open())
-        return;
-    QString sql = QString("SELECT EventTypeID,Type,Time,CanPort,CanDeviceAddress,Loop,"
-                                       "LampDeviceAddress,Area,Location,Remark from log WHERE Time > '%1' AND Time < '%2' ")
-                               .arg(xmlObjectStatus->nStartTime.toString("yyyy-MM-dd")).arg(xmlObjectStatus->nEndTime.toString("yyyy-MM-dd"));
-//    QSqlQuery query = db.query(QString("SELECT EventTypeID,Type,Time,CanPort,CanDeviceAddress,Loop,"
-//                                       "LampDeviceAddress,Area,Location,Remark from log WHERE Time > '%1' AND Time < '%2' ")
-//                               .arg(xmlObjectStatus->nStartTime.toString("yyyy-MM-dd")).arg(xmlObjectStatus->nEndTime.toString("yyyy-MM-dd")));
-    if(xmlObjectStatus->strdata != "")
-    {
-        sql.append(QString(" AND type = '%1'").arg(xmlObjectStatus->strdata));
-    }
-    QSqlQuery query = db.query(sql);
-    QSqlRecord record = query.record();
-    int fieldId = record.indexOf("EventTypeID");
-    int fieldType = record.indexOf("Type");
-    int fieldTime = record.indexOf("Time");
-    int fieldCanPort = record.indexOf("CanPort");
-    int fieldCanDeviceAddress = record.indexOf("CanDeviceAddress");
-    int fieldLoop = record.indexOf("Loop");
-    int fieldLampDeviceAddress = record.indexOf("LampDeviceAddress");
-    int fieldArea = record.indexOf("Area");
-    int fieldLocation = record.indexOf("Location");
-    int fieldRemark = record.indexOf("Remark");
-    while(query.next())
-    {
-        m_xmlitem_2 = m_xmldoc.createElement("E");
-        m_xmlitem_2.setAttribute("ID", query.value(fieldId).toInt());
-        m_xmlitem_2.setAttribute("EventType", query.value(fieldType).toString());
-        m_xmlitem_2.setAttribute("Time", query.value(fieldTime).toString());
-        m_xmlitem_2.setAttribute("CanPort", query.value(fieldCanPort).toInt());
-        m_xmlitem_2.setAttribute("CanDeviceAddress", query.value(fieldCanDeviceAddress).toInt());
-        m_xmlitem_2.setAttribute("Loop", query.value(fieldLoop).toInt());
-        m_xmlitem_2.setAttribute("LampDeviceAddress", query.value(fieldLampDeviceAddress).toInt());
-        m_xmlitem_2.setAttribute("Area", query.value(fieldArea).toString());
-        m_xmlitem_2.setAttribute("Location", query.value(fieldLocation).toString());
-        m_xmlitem_2.setAttribute("Remark", query.value(fieldRemark).toString());
-        m_xmlitem_1.appendChild(m_xmlitem_2);
-    }
-    db.close();
-    m_xmlroot.appendChild(m_xmlitem_1);
-    CGlobal::instance()->processServer()->replyXmlMsg(m_xmldoc.toByteArray(4));
-}
-
-//服务端回复所有状态
-void CClientBusiness::serverAllState()
-{
-    qDebug() << "CClientBusiness::serverAllState"
-             << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss:zzz");
-    QString batteryStatus;
-    CCanport* canport = CGlobal::instance()->controller()->canportById(CGlobal::instance()->panelAddress());
-    if(!canport)
-        return;
-    if(canport->getStatus(OBJS_StandbyPowerOff))
-        batteryStatus = "断线";
-    else if(canport->getStatus(OBJS_StandbyPowerShort))
-        batteryStatus = "短路";
-    else if(canport->getStatus(OBJS_StandbyPowerUndervoltage))
-        batteryStatus = "欠压";
-    else
-        batteryStatus = "正常";
-    //服务端主机状态上传
-    serverHostStateUpload(!canport->getStatus(OBJS_MainPowerFault),batteryStatus);
-
-    for(int i=0; i<62; i++)
-    {
-        CDistribution* distribution = canport->distributionByAddress(i+1);
-        if(distribution)
-        {
-            QApplication::processEvents();
-            //集中电源状态
-            serverCentralizedPowerStateUpload(distribution);
-            for(int i=0; i<8; i++)
-            {
-                CLoop* loop = distribution->loopByAdd(i+1);
-                if(loop)
-                {
-                    QApplication::processEvents();
-                    for(int i=0; i<255; i++)
-                    {
-                        CDevice* device = loop->deviceByAdd(i+1);
-                        if(device)
-                        {
-                            QApplication::processEvents();
-                            //灯具状态
-                            uploadLampStatus(device);
-                        }
-                    }
-                }
-            }
-        }
-    }
-    m_isQueryAllState = false;
-}
-
-//服务端回复页面信息
-void CClientBusiness::serverPageInfo()
-{
-    qDebug() << "CClientBusiness::serverPageInfo"
-             << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss:zzz");
-    serverXmlInit();
-    m_xmlitem_1 = m_xmldoc.createElement("PageInfo");
-
-    QString fileName = CGlobal::instance()->workspaces() + "/" + "ESSQLiteCE100.db";
-    CDBSqlite db(fileName);
-    if(!db.open())
-        return;
-    QSqlQuery query = db.query(QString("SELECT ID,BackgroundColor,BackgroundPicture,PageWidth,PageHeight,Remark from LayoutPage"));
-    QSqlRecord record = query.record();
-    int fieldId = record.indexOf("ID");
-    int fieldBackgroundColor = record.indexOf("BackgroundColor");
-    int fieldBackgroundPicture = record.indexOf("BackgroundPicture");
-    int fieldPageWidth = record.indexOf("PageWidth");
-    int fieldPageHeight = record.indexOf("PageHeight");
-    int fieldRemark = record.indexOf("Remark");
-    while(query.next())
-    {
-        m_xmlitem_2 = m_xmldoc.createElement("PI");
-        m_xmlitem_2.setAttribute("ID", query.value(fieldId).toInt());
-        if(query.value(fieldBackgroundPicture).toString() == "")
-            m_xmlitem_2.setAttribute("C", query.value(fieldBackgroundColor).toInt());
-        else
-        {
-            m_xmlitem_2.setAttribute("P", query.value(fieldBackgroundPicture).toString());
-            QString filePath = CGlobal::instance()->workspaces() + "/" + "PageBackgroundFolder/" + query.value(fieldBackgroundPicture).toString();
-            QFile file(filePath);
-            if (!file.open(QIODevice::ReadOnly)) {
-                    qDebug() << "Failed to open file";
-                }
-            QByteArray imageData = file.readAll();
-            m_xmlitem_2.setAttribute("S", imageData.size());
-//            QImage image;
-//            if (image.loadFromData(imageData)) {
-//                int memorySize = image.byteCount();
-//                m_xmlitem_2.setAttribute("S", memorySize);
-//                qDebug() << "Image Memory Size:" << memorySize << "bytes";
-//            }
-//            else
-//                m_xmlitem_2.setAttribute("S", 0);
-            file.close();
-        }
-
-        m_xmlitem_2.setAttribute("W", query.value(fieldPageWidth).toInt());
-        m_xmlitem_2.setAttribute("H", query.value(fieldPageHeight).toInt());
-        m_xmlitem_2.setAttribute("R", query.value(fieldRemark).toString());
-        m_xmlitem_1.appendChild(m_xmlitem_2);
-
-    }
-    db.close();
-    m_xmlroot.appendChild(m_xmlitem_1);
-    CGlobal::instance()->processServer()->replyXmlMsg(m_xmldoc.toByteArray(4));
-}
-
-//服务端回复图片
-void CClientBusiness::serverPicture(CMsgObjectStatus* xmlObjectStatus)
-{
-    qDebug() << "CClientBusiness::serverPicture"
-             << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss:zzz");
-    QString filePath = CGlobal::instance()->workspaces() + "/" + "PageBackgroundFolder/" + xmlObjectStatus->strdata;
-    QFile file(filePath);
-    if (!file.open(QIODevice::ReadOnly)) {
-            qDebug() << "Failed to open file";
-        }
-    QByteArray imageData = file.readAll();
-    imageData.append("E");
-    imageData.append("O");
-    imageData.append("F");
-    CGlobal::instance()->processServer()->replyXmlMsg(imageData);
-}
-
-//服务端回复灯具坐标
-void CClientBusiness::serverLampCoordinate()
-{
-    qDebug() << "CClientBusiness::serverLampCoordinate"
-             << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss:zzz");
-    serverXmlInit();
-    m_xmlitem_1 = m_xmldoc.createElement("LampCoordinate");
-
-    QString fileName = CGlobal::instance()->workspaces() + "/" + "ESSQLiteCE100.db";
-    CDBSqlite db(fileName);
-    if(!db.open())
-        return;
-    QSqlQuery query = db.query(QString("SELECT c.id,c.lampinfoid,c.layoutpageid,c.cx,c.cy,c.width,c.height,c.angle from Coordinate c"));
-    QSqlRecord record = query.record();
-    int fieldKeyId = record.indexOf("id");
-    int fieldLampInfoID = record.indexOf("lampinfoid");
-    int fieldLayoutPageID = record.indexOf("layoutpageid");
-    int fieldCX = record.indexOf("cx");
-    int fieldCY = record.indexOf("cy");
-    int fieldWidth = record.indexOf("width");
-    int fieldHeight = record.indexOf("height");
-    int fieldAngle = record.indexOf("angle");
-    while(query.next())
-    {
-        m_xmlitem_2 = m_xmldoc.createElement("LC");
-        m_xmlitem_2.setAttribute("ID", query.value(fieldKeyId).toInt());
-        m_xmlitem_2.setAttribute("LID", query.value(fieldLampInfoID).toInt());
-        m_xmlitem_2.setAttribute("PID", query.value(fieldLayoutPageID).toInt());
-        m_xmlitem_2.setAttribute("X", query.value(fieldCX).toInt());
-        m_xmlitem_2.setAttribute("Y", query.value(fieldCY).toInt());
-        m_xmlitem_2.setAttribute("W", query.value(fieldWidth).toInt());
-        m_xmlitem_2.setAttribute("H", query.value(fieldHeight).toInt());
-        m_xmlitem_2.setAttribute("A", query.value(fieldAngle).toInt());
-        m_xmlitem_1.appendChild(m_xmlitem_2);
-
-    }
-    db.close();
-    m_xmlroot.appendChild(m_xmlitem_1);
-    CGlobal::instance()->processServer()->replyXmlMsg(m_xmldoc.toByteArray(4));
-}
-
-//服务端回复着火点坐标
-void CClientBusiness::serverFirePointCoordinate()
-{
-    qDebug() << "CClientBusiness::serverFirePointCoordinate"
-             << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss:zzz");
-    serverXmlInit();
-    m_xmlitem_1 = m_xmldoc.createElement("FirePointCoordinate");
-
-    QString fileName = CGlobal::instance()->workspaces() + "/" + "ESSQLiteCE100.db";
-    CDBSqlite db(fileName);
-    if(!db.open())
-        return;
-    QSqlQuery query = db.query(QString("SELECT f.id,f.firepointid,f.layoutpageid,f.cx,f.cy,f.width,f.height from FirePointCoordinate f"));
-    QSqlRecord record = query.record();
-    int fieldId = record.indexOf("id");
-    int fieldFirePointID = record.indexOf("firepointid");
-    int fieldLayoutPageID = record.indexOf("layoutpageid");
-    int fieldCX = record.indexOf("cx");
-    int fieldCY = record.indexOf("cy");
-    int fieldWidth = record.indexOf("width");
-    int fieldHeight = record.indexOf("height");
-    while(query.next())
-    {
-        m_xmlitem_2 = m_xmldoc.createElement("FPC");
-        m_xmlitem_2.setAttribute("ID", query.value(fieldId).toInt());
-        m_xmlitem_2.setAttribute("FPID", query.value(fieldFirePointID).toInt());
-        m_xmlitem_2.setAttribute("PID", query.value(fieldLayoutPageID).toInt());
-        m_xmlitem_2.setAttribute("X", query.value(fieldCX).toDouble());
-        m_xmlitem_2.setAttribute("Y", query.value(fieldCY).toDouble());
-        m_xmlitem_2.setAttribute("W", query.value(fieldWidth).toDouble());
-        m_xmlitem_2.setAttribute("H", query.value(fieldHeight).toDouble());
-        m_xmlitem_1.appendChild(m_xmlitem_2);
-
-    }
-    db.close();
-    m_xmlroot.appendChild(m_xmlitem_1);
-    CGlobal::instance()->processServer()->replyXmlMsg(m_xmldoc.toByteArray(4));
-}
-
-//服务端回复灯具软件信息
-void CClientBusiness::serverLampSoftwareInfo(int ID, int SoftwareNumber, int SoftwareVersion)
-{
-    qDebug() << "CClientBusiness::serverLampSoftwareInfo"
-             << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss:zzz");
-    serverXmlInit();
-    m_xmlitem_1 = m_xmldoc.createElement("LampSoftwareInfo");
-    m_xmlitem_1.setAttribute("ID", ID);
-    m_xmlitem_1.setAttribute("SoftwareNumber", SoftwareNumber);
-    m_xmlitem_1.setAttribute("SoftwareVersion", SoftwareVersion);
-    m_xmlroot.appendChild(m_xmlitem_1);
-    CGlobal::instance()->processServer()->replyXmlMsg(m_xmldoc.toByteArray(4));
-}
-
-//服务端回复集中电源软件信息
-void CClientBusiness::serverDeviceSoftwareInfo(CDistribution* distribution)
-{
-    qDebug() << "CClientBusiness::serverDeviceSoftwareInfo"
-             << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss:zzz");
-    serverXmlInit();
-    m_xmlitem_1 = m_xmldoc.createElement("DeviceSoftwareInfo");
-    m_xmlitem_1.setAttribute("ID", CGlobal::instance()->saveKeyId(OBJT_Distribution,distribution->keyId()));
-    m_xmlitem_1.setAttribute("CPUVersion", distribution->distributionValue(DISTRIBUTION_VALUE_CPUVERSION).toString());
-    m_xmlitem_1.setAttribute("POWVersion", distribution->distributionValue(DISTRIBUTION_VALUE_POWVERSION).toString());
-    m_xmlitem_1.setAttribute("ABUS1Version", distribution->distributionValue(DISTRIBUTION_VALUE_ABUS1VERSION).toString());
-    m_xmlitem_1.setAttribute("ABUS2Version", distribution->distributionValue(DISTRIBUTION_VALUE_ABUS2VERSION).toString());
-    m_xmlitem_1.setAttribute("ABUS3Version", distribution->distributionValue(DISTRIBUTION_VALUE_ABUS3VERSION).toString());
-    m_xmlitem_1.setAttribute("ABUS4Version", distribution->distributionValue(DISTRIBUTION_VALUE_ABUS4VERSION).toString());
-    m_xmlitem_1.setAttribute("ABUS5Version", distribution->distributionValue(DISTRIBUTION_VALUE_ABUS5VERSION).toString());
-    m_xmlitem_1.setAttribute("ABUS6Version", distribution->distributionValue(DISTRIBUTION_VALUE_ABUS6VERSION).toString());
-    m_xmlitem_1.setAttribute("ABUS7Version", distribution->distributionValue(DISTRIBUTION_VALUE_ABUS7VERSION).toString());
-    m_xmlitem_1.setAttribute("ABUS8Version", distribution->distributionValue(DISTRIBUTION_VALUE_ABUS8VERSION).toString());
-    m_xmlitem_1.setAttribute("ABUS9Version", distribution->distributionValue(DISTRIBUTION_VALUE_ABUS9VERSION).toString());
-    m_xmlitem_1.setAttribute("ABUS10Version", distribution->distributionValue(DISTRIBUTION_VALUE_ABUS10VERSION).toString());
-    m_xmlitem_1.setAttribute("ABUS11Version", distribution->distributionValue(DISTRIBUTION_VALUE_ABUS11VERSION).toString());
-    m_xmlitem_1.setAttribute("ABUS12Version", distribution->distributionValue(DISTRIBUTION_VALUE_ABUS12VERSION).toString());
-    m_xmlroot.appendChild(m_xmlitem_1);
-    CGlobal::instance()->processServer()->replyXmlMsg(m_xmldoc.toByteArray(4));
-}
-
-//服务端回复集中电源运行参数
-void CClientBusiness::serverDeviceRealtimeData(CDistribution* distribution)
-{
-    qDebug() << "CClientBusiness::serverDeviceRealtimeData"
-             << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss:zzz");
-    CLoop* loop;
-    serverXmlInit();
-    m_xmlitem_1 = m_xmldoc.createElement("DeviceRealtimeData");
-    m_xmlitem_1.setAttribute("ID", CGlobal::instance()->saveKeyId(OBJT_Distribution,distribution->keyId()));
-    m_xmlitem_1.setAttribute("MainPowerVoltage", distribution->distributionValue(DISTRIBUTION_VALUE_MAINV).toString());
-    m_xmlitem_1.setAttribute("OutputVoltage", distribution->distributionValue(DISTRIBUTION_VALUE_OUTV).toString());
-    m_xmlitem_1.setAttribute("OutputCurrent", distribution->distributionValue(DISTRIBUTION_VALUE_OUTA).toString());
-    m_xmlitem_1.setAttribute("OutsideVoltage", distribution->distributionValue(DISTRIBUTION_VALUE_EXTERNALV).toString());
-    m_xmlitem_1.setAttribute("Battery1Voltage", distribution->distributionValue(DISTRIBUTION_VALUE_BAT1V).toString());
-    m_xmlitem_1.setAttribute("Battery2Voltage", distribution->distributionValue(DISTRIBUTION_VALUE_BAT2V).toString());
-    m_xmlitem_1.setAttribute("Battery3Voltage", distribution->distributionValue(DISTRIBUTION_VALUE_BAT3V).toString());
-    m_xmlitem_1.setAttribute("Battery1Temperature", distribution->distributionValue(DISTRIBUTION_VALUE_BAT1T).toString());
-    m_xmlitem_1.setAttribute("Battery2Temperature", distribution->distributionValue(DISTRIBUTION_VALUE_BAT2T).toString());
-    m_xmlitem_1.setAttribute("Battery3Temperature", distribution->distributionValue(DISTRIBUTION_VALUE_BAT3T).toString());
-    m_xmlitem_1.setAttribute("BatteryTotalVoltage", distribution->distributionValue(DISTRIBUTION_VALUE_BATV).toString());
-    for(int i=1; i<13; i++)
-    {
-        loop = distribution->loopByAdd(i);
-        if(loop)
-        {
-            m_xmlitem_1.setAttribute(QString("Loop%1Voltage").arg(i), loop->loopValue(LOOP_VALUE_V).toString());
-            m_xmlitem_1.setAttribute(QString("Loop%1Current").arg(i), loop->loopValue(LOOP_VALUE_A).toString());
-        }
-        else
-        {
-            m_xmlitem_1.setAttribute(QString("Loop%1Voltage").arg(i), 0);
-            m_xmlitem_1.setAttribute(QString("Loop%1Current").arg(i), 0);
-        }
-    }
-
-
-    m_xmlroot.appendChild(m_xmlitem_1);
-    CGlobal::instance()->processServer()->replyXmlMsg(m_xmldoc.toByteArray(4));
-}
-
-//服务端上传主机故障
-void CClientBusiness::serverHostStateUpload(bool isMainPowerOK, QString batteryState)
-{
-    qDebug() << "CClientBusiness::serverHostStateUpload"
-             << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss:zzz");
-    if(!CGlobal::instance()->processServer()->m_isMasterConnected)
-        return;
-    if(m_masterStateUploadFlag == false && m_isQueryAllState == false)
-        return;
-    QString batteryOK = "False";
-    if(batteryState == "正常")
-        batteryOK = "True";
-    serverXmlInit();
-    m_xmlitem_1 = m_xmldoc.createElement("HostFaultUpload");
-    m_xmlitem_1.setAttribute("IsMainPowerOK", statusToString(isMainPowerOK));
-    m_xmlitem_1.setAttribute("IsBackupBatteryOK", batteryOK);
-    m_xmlroot.appendChild(m_xmlitem_1);
-    CGlobal::instance()->processServer()->replyXmlMsg(m_xmldoc.toByteArray(4));
-}
-
-//服务端上传集中电源故障
-void CClientBusiness::serverCentralizedPowerStateUpload(CDistribution* distribution)
-{
-    qDebug() << "CClientBusiness::serverCentralizedPowerStateUpload"
-             << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss:zzz");
-    if(!CGlobal::instance()->processServer()->m_isMasterConnected)
-        return;
-    if(m_masterStateUploadFlag == false && m_isQueryAllState == false)
-        return;
-    CLoop* loop;
-    serverXmlInit();
-    m_xmlitem_1 = m_xmldoc.createElement("CanDeviceStateUpload");
-    m_xmlitem_1.setAttribute("CanDeviceID", CGlobal::instance()->saveKeyId(OBJT_Distribution, distribution->keyId()));
-    m_xmlitem_1.setAttribute("IsCommunicationOK", statusToString(!distribution->getStatus(OBJS_DistributionCommunicationFault)));
-    m_xmlitem_1.setAttribute("IsOutputOverload", statusToString(distribution->getoverOut()));
-    m_xmlitem_1.setAttribute("IsOutputCut", statusToString(distribution->getoutOpen()));
-    m_xmlitem_1.setAttribute("IsBatteryVoltage1Low", statusToString(distribution->getbat1Undervoltage()));
-    m_xmlitem_1.setAttribute("IsBatteryVoltage2Low", statusToString(distribution->getbat2Undervoltage()));
-    m_xmlitem_1.setAttribute("IsBatteryVoltage3Low", statusToString(distribution->getbat3Undervoltage()));
-    m_xmlitem_1.setAttribute("IsBackupBatteryFault", statusToString(distribution->getbackupPowerFault()));
-    m_xmlitem_1.setAttribute("IsChargerFault", statusToString(distribution->getchargeFault()));
-    m_xmlitem_1.setAttribute("IsOverDischarge", statusToString(distribution->getoverDischargeFault()));
-    m_xmlitem_1.setAttribute("Warning", statusToString(distribution->getemergencyStatus()));
-    m_xmlitem_1.setAttribute("Is36VInputFault", statusToString(distribution->get36vOut()));
-    m_xmlitem_1.setAttribute("IsMainPowerFault", statusToString(distribution->getmainPowerFault()));
-    m_xmlitem_1.setAttribute("IsSystemFault", statusToString(distribution->getsystemFault()));
-    m_xmlitem_1.setAttribute("IsManualMode", statusToString(distribution->getrunMode()));
-    m_xmlitem_1.setAttribute("IsCharging", statusToString(distribution->getchargeStatus()));
-    m_xmlitem_1.setAttribute("IsBattery1OverHeating", statusToString(distribution->getbatOverheating()));
-    m_xmlitem_1.setAttribute("IsBattery2OverHeating", statusToString(distribution->getbatOverheating()));
-    m_xmlitem_1.setAttribute("IsBattery3OverHeating", statusToString(distribution->getbatOverheating()));
-
-    for(int i=1; i<13; i++)
-    {
-        loop = distribution->loopByAdd(i);
-        if(loop)
-        {
-            m_xmlitem_1.setAttribute(QString("Loop%1State").arg(i), loop->getLoopCommunicationFault() ? "故障":"正常");
-            m_xmlitem_1.setAttribute(QString("Loop%1OutputCut").arg(i), (distribution->getloopOpen() & (0x01<<(i-1))) ? "True" : "False");
-        }
-        else
-        {
-            m_xmlitem_1.setAttribute(QString("Loop%1State").arg(i), "正常");
-            m_xmlitem_1.setAttribute(QString("Loop%1OutputCut").arg(i), "False");
-        }
-    }
-    m_xmlroot.appendChild(m_xmlitem_1);
-    CGlobal::instance()->processServer()->replyXmlMsg(m_xmldoc.toByteArray(4));
-}
-
-//服务端上传灯具状态
-void CClientBusiness::serverLampStateUpload(int ID, bool isCommunicationOK, bool isLightFault, bool isWarning)
-{
-    qDebug() << "CClientBusiness::serverLampStateUpload"
-             << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss:zzz");
-    if(!CGlobal::instance()->processServer()->m_isMasterConnected)
-        return;
-    if(m_masterStateUploadFlag == false && m_isQueryAllState == false)
-        return;
-    serverXmlInit();
-    m_xmlitem_1 = m_xmldoc.createElement("LampStateUpload");
-    m_xmlitem_1.setAttribute("LampID", ID);
-    m_xmlitem_1.setAttribute("IsCommunicationOK", statusToString(isCommunicationOK));
-    m_xmlitem_1.setAttribute("IsLightSourceFault", statusToString(isLightFault));
-    m_xmlitem_1.setAttribute("IsWarning", statusToString(isWarning));
-    m_xmlroot.appendChild(m_xmlitem_1);
-    CGlobal::instance()->processServer()->replyXmlMsg(m_xmldoc.toByteArray(4));
-}
-
-//服务端上传着火点报警
-void CClientBusiness::serverFirePointWarningUpload(int deviceAddress, int loopAddress, int terminalAddress)
-{
-    qDebug() << "CClientBusiness::serverFirePointWarningUpload"
-             << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss:zzz");
-    if(!CGlobal::instance()->processServer()->m_isMasterConnected)
-        return;
-    if(m_masterStateUploadFlag == false)
-        return;
-    serverXmlInit();
-    m_xmlitem_1 = m_xmldoc.createElement("FirePointWarningUpload");
-    m_xmlitem_1.setAttribute("DeviceAddress", deviceAddress);
-    m_xmlitem_1.setAttribute("LoopAddress", loopAddress);
-    m_xmlitem_1.setAttribute("TerminalAddress", terminalAddress);
-    m_xmlroot.appendChild(m_xmlitem_1);
-    CGlobal::instance()->processServer()->replyXmlMsg(m_xmldoc.toByteArray(4));
-}
-
-//服务端上传开关量应急
-void CClientBusiness::serverEmergencyInputUpload()
-{
-    qDebug() << "CClientBusiness::serverEmergencyInputUpload"
-             << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss:zzz");
-    if(!CGlobal::instance()->processServer()->m_isMasterConnected)
-        return;
-    if(m_masterStateUploadFlag == false)
-        return;
-    serverXmlInit();
-    m_xmlitem_1 = m_xmldoc.createElement("EmergencyInputUpload");
-    m_xmlroot.appendChild(m_xmlitem_1);
-    CGlobal::instance()->processServer()->replyXmlMsg(m_xmldoc.toByteArray(4));
-}
-//服务端上传手动应急
-void CClientBusiness::serverManualLaunchUpload()
-{
-    qDebug() << "CClientBusiness::serverManualLaunchUpload"
-             << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss:zzz");
-    if(m_masterStateUploadFlag == false)
-        return;
-    serverXmlInit();
-    m_xmlitem_1 = m_xmldoc.createElement("ManualLaunchUpload");
-    m_xmlroot.appendChild(m_xmlitem_1);
-    CGlobal::instance()->processServer()->replyXmlMsg(m_xmldoc.toByteArray(4));
-}
-
-//服务端上传灯具指向
-void CClientBusiness::serverLampDirectionUpload(int lampID, QString direction)
-{
-    qDebug() << "CClientBusiness::serverLampDirectionUpload"
-             << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss:zzz");
-    if(!CGlobal::instance()->processServer()->m_isMasterConnected)
-        return;
-    if(m_masterStateUploadFlag == false)
-        return;
-    serverXmlInit();
-    m_xmlitem_1 = m_xmldoc.createElement("LampDirectionUpload");
-    m_xmlitem_1.setAttribute("LampID", lampID);
-    m_xmlitem_1.setAttribute("Direction", direction);
-    m_xmlroot.appendChild(m_xmlitem_1);
-    CGlobal::instance()->processServer()->replyXmlMsg(m_xmldoc.toByteArray(4));
-}
-
-
-//服务端接收主机控制指令
-void CClientBusiness::serverHostControl(CMsgObjectStatus* xmlObjectStatus)
-{
-    qDebug() << "CClientBusiness::serverHostControl"
-             << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss:zzz");
-    CMsgNull m_MsgNUll;
-    if(xmlObjectStatus->strdata == "启动")
-    {
-        CMsgNull m_MsgNUll;
-        exeCommand(NCT_CancelMute, &m_MsgNUll);
-        CGlobal::instance()->DataProcessing()->setSoundIcon(true);
-        if(CGlobal::instance()->m_EmergencyOperation == CGlobal::Start)
-            return;
-        CGlobal::instance()->m_EmergencyOperation = CGlobal::Start;
-        exeCommand(NCT_EmergencyStart, &m_MsgNUll);
-        Emergency();
-    }
-    else if(xmlObjectStatus->strdata == "复位")
-    {
-//        CGlobal::instance()->m_bInLogin = false;
-//        CGlobal::instance()->m_isEmergency = false;
-//        clearStatusObject(true);
-//        clearExpectObject();
-//        //复位声明上传到客户端
-//        serverResetDeclareUpload();
-//        //灯具状态复位
-//        DeviceResetStatus();
-//        CGlobal::instance()->DlgDevices()->getDeviceInfo();
-//        CGlobal::instance()->DlgDevices()->lampBatStatusUpload();
-//        //布局视图界面灯具状态更新
-//        CGlobal::instance()->designSplashView()->setPageStateUpdate(true);
-//        //集中电源状态复位
-//        CGlobal::instance()->programDistributionView()->distributionResetStatus();
-
-//        //复位后延迟1s对比检查数据库数据是否在线
-//        QTimer::singleShot(1000, this, SLOT(slotCheckLoginInfo()));
-//        exeCommand(NCT_Reset, &m_MsgNUll);
-    }
-    serverXmlInit();
-    m_xmlitem_1 = m_xmldoc.createElement("HostControlConfirm");
-    m_xmlroot.appendChild(m_xmlitem_1);
-    CGlobal::instance()->processServer()->replyXmlMsg(m_xmldoc.toByteArray(4));
-}
-
-//服务端自动上传控制开关
-void CClientBusiness::serverSetAutoStateUpload(QString enable)
-{
-    qDebug() << "CClientBusiness::serverSetAutoStateUpload"
-             << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss:zzz");
-    if(enable == "True" || enable == "true")
-        m_masterStateUploadFlag = true;
-    else if(enable == "False" || enable == "false")
-        m_masterStateUploadFlag = false;
-    serverXmlInit();
-    m_xmlitem_1 = m_xmldoc.createElement("SetAutoStateUploadConfirm");
-    m_xmlroot.appendChild(m_xmlitem_1);
-    CGlobal::instance()->processServer()->replyXmlMsg(m_xmldoc.toByteArray(4));
-}
-
-//服务端上传复位声明
-void CClientBusiness::serverResetDeclareUpload()
-{
-    qDebug() << "CClientBusiness::serverResetDeclareUpload"
-             << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss:zzz");
-    if(!CGlobal::instance()->processServer()->m_isMasterConnected)
-        return;
-    if(m_masterStateUploadFlag == false)
-        return;
-    serverXmlInit();
-    m_xmlitem_1 = m_xmldoc.createElement("ResetDeclareUpload");
-    m_xmlroot.appendChild(m_xmlitem_1);
-    CGlobal::instance()->processServer()->replyXmlMsg(m_xmldoc.toByteArray(4));
-}
 
 void CClientBusiness::DeviceResetStatus()
 {
@@ -5080,20 +4295,106 @@ int CClientBusiness::deviceType(int typeId)
         return NCT_UndergroundType;
 }
 
-//void CClientBusiness::slot_ledStatusSend()
-//{
-//    CMsgLedInfo msgLed;
-//    msgLed.nLedID = 4;
-//    msgLed.nLedStatus = m_faultObjects.isEmpty()?0:1;
-//    exeCommand(NCT_LedStatus, &msgLed);
-//    msgLed.nLedID = 5;
-//    msgLed.nLedStatus = m_startObjects.isEmpty()?0:1;
-//    exeCommand(NCT_LedStatus, &msgLed);
-//}
 
 void CClientBusiness::ParsePacket(int nMsgType, const char *data, int nLen)
 {
     qDebug() << "CClientBusiness::ParsePacket"
              << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss:zzz");
     m_communication->ParsePacket(nMsgType, data, nLen);
+}
+
+//tcpserver函数
+void CClientBusiness::server_ResetDeclareUpload()
+{
+    emit serverResetDeclareUpload();
+}
+
+void CClientBusiness::server_LampDirectionUpload(int lampID, QString direction)
+{
+    emit serverLampDirectionUpload(lampID, direction);
+}
+
+void CClientBusiness::server_ManualLaunchUpload()
+{
+    emit serverManualLaunchUpload();
+}
+
+//tcpserver槽函数
+void CClientBusiness::slot_exeCommand(int commandType, CMsgStructBase *msgData)
+{
+    if(!msgData)
+        return;
+    QByteArray data = msgData->data(commandType);
+    m_communication->ParsePacket(commandType, data.data(), data.size());
+}
+
+void CClientBusiness::slot_PerformLaunch(int firePointID)
+{
+    CController* controller = CGlobal::instance()->controller();
+    if(!controller)
+        return;
+    CFirePoint* firepoint = controller->firePointByID(firePointID);
+    if(firepoint)
+    {
+        firepoint->setStatus(OBJS_FireEmergency,true);
+        firepoint->setEmergency(true);
+        m_emergencyFirePoints.append(firepoint);
+        if(CGlobal::instance()->m_startFirepointNumber > 1)
+        {
+            QString fileName = CGlobal::instance()->workspaces() + "/" + "ESSQLiteCE100.db";
+            CDBSqlite db(fileName);
+            if(!db.open())
+                return;
+            QList<int> groups;
+            //该火警点对应分区
+            QSqlQuery queryFirePointGroup = db.query(QString("SELECT g.LaunchGroupID from LampToLaunchGroup g "
+                                               " left join LampToFirePoint f on f.LampInfoID=g.LampInfoID "
+                                               " where f.FirePointID=%1").arg(firepoint->firePointId()));
+            while(queryFirePointGroup.next())
+            {
+                int groupID = queryFirePointGroup.value(0).toInt();
+                if(groups.contains(groupID))
+                    continue;
+                groups.append(groupID);
+                firepoint->setFirePointValue(FIREPOINT_VALUE_GROUP,groupID);
+            }
+            int emergencyFirePointNumber = 0;
+            for(int i=0; i<m_emergencyFirePoints.count(); i++)
+            {
+                if(groups.contains(m_emergencyFirePoints.at(i)->firePointValue(FIREPOINT_VALUE_GROUP).toInt()))
+                    emergencyFirePointNumber = emergencyFirePointNumber + 1;
+            }
+            if(emergencyFirePointNumber < CGlobal::instance()->m_startFirepointNumber)
+            {
+                return;
+            }
+        }
+        controller->setStatus(OBJS_FireEmergency,true);
+        CMsgNull m_MsgNUll;
+        CGlobal::instance()->ClientBusiness()->exeCommand(NCT_CancelMute, &m_MsgNUll);
+        CGlobal::instance()->DataProcessing()->setSoundIcon(true);
+        CGlobal::instance()->ClientBusiness()->exeCommand(NCT_AutoFire, &m_MsgNUll);
+        if(CGlobal::instance()->m_emergencyOnlyDistribution)
+        {
+            firePointEmergencyByDistribution(firepoint->firePointId());
+        }
+        else
+        {
+            if(CGlobal::instance()->m_nStartRule == RULE_OnlyGroup)
+                firePointEmergencyByGroup(firepoint->firePointId());
+            else if(CGlobal::instance()->m_nStartRule == RULE_OnlyPage)
+                CGlobal::instance()->ClientBusiness()->firePointEmergencyByLayoutPage(firepoint->firePointId());
+            else
+            {
+                CMsgObjectStatus msgObjectStatus;
+                msgObjectStatus.nValue = true;
+                exeCommand(NCT_Emergency, &msgObjectStatus);
+            }
+        }
+    }
+}
+
+void CClientBusiness::slot_PerformReset()
+{
+    CGlobal::instance()->TopToolBar()->resetSystem();
 }

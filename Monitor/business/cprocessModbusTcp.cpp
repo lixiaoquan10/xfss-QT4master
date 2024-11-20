@@ -139,17 +139,6 @@ void CprocessModbusTcp::processReceiveData(QByteArray array)
                         return;
                     CGlobal::instance()->m_EmergencyOperation = CGlobal::Start;
                     CGlobal::instance()->ClientBusiness()->exeCommand(NCT_EmergencyStart, &m_MsgNUll);
-
-                    if(CGlobal::instance()->processSocket()->m_isCloudConnected)
-                    {
-                        //上传手动应急到云平台
-                        CGlobal::instance()->ClientBusiness()->XmlManualLaunchUpload();
-                    }
-                    if(CGlobal::instance()->processServer()->m_isMasterConnected)
-                    {
-                        //服务端上传手动应急
-                        CGlobal::instance()->ClientBusiness()->serverManualLaunchUpload();
-                    }
                 }
             }
         }

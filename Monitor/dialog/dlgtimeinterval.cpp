@@ -1009,15 +1009,15 @@ void dlgTimeInterval::setComStatus()
         ui->m_cloudComStatus->setText("未连接");
         CGlobal::instance()->ClientBusiness()->m_cloudStateUploadFlag = false;
     }
-    if(CGlobal::instance()->processServer()->m_isMasterConnected)
-    {
-        ui->m_masterStatus->setText("已连接");
-    }
-    else
-    {
-        ui->m_masterStatus->setText("未连接");
-        CGlobal::instance()->ClientBusiness()->m_masterStateUploadFlag = false;
-    }
+//    if(CGlobal::instance()->processServer()->m_isMasterConnected)
+//    {
+//        ui->m_masterStatus->setText("已连接");
+//    }
+//    else
+//    {
+//        ui->m_masterStatus->setText("未连接");
+//        CGlobal::instance()->ClientBusiness()->m_masterStateUploadFlag = false;
+//    }
 }
 
 bool dlgTimeInterval::isCloudConnect()

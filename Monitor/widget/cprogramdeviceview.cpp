@@ -357,8 +357,8 @@ void CProgramDeviceView::slot_AllClose()
 //    CGlobal::instance()->ClientBusiness()->XmlUploadLampDirection(
 //                CGlobal::instance()->saveKeyId(OBJT_Device, device->keyId()),"全灭");
 //    //服务端上传灯具指向
-//    CGlobal::instance()->ClientBusiness()->serverLampDirectionUpload(
-//                CGlobal::instance()->saveKeyId(OBJT_Device, device->keyId()),"全灭");
+//    CGlobal::instance()->ClientBusiness()->server_LampDirectionUpload(
+//                CGlobal::instance()->saveKeyId(OBJT_Device, m_device->keyId()),"全灭");
     CGlobal::instance()->ClientBusiness()->exeCommand(NCT_DeviceDirection, &msgobjectstatus);
 
     //布局视图界面灯具状态更新
@@ -385,8 +385,8 @@ void CProgramDeviceView::slot_Left()
 //    CGlobal::instance()->ClientBusiness()->XmlUploadLampDirection(
 //                CGlobal::instance()->saveKeyId(OBJT_Device, device->keyId()),"左向");
 //    //服务端上传灯具指向
-//    CGlobal::instance()->ClientBusiness()->serverLampDirectionUpload(
-//                CGlobal::instance()->saveKeyId(OBJT_Device, device->keyId()),"左向");
+//    CGlobal::instance()->ClientBusiness()->server_LampDirectionUpload(
+//                CGlobal::instance()->saveKeyId(OBJT_Device, m_device->keyId()),"左向");
     CGlobal::instance()->ClientBusiness()->exeCommand(NCT_DeviceDirection, &msgobjectstatus);
 
     //布局视图界面灯具状态更新
@@ -414,9 +414,9 @@ void CProgramDeviceView::slot_Right()
 //    CGlobal::instance()->ClientBusiness()->XmlUploadLampDirection(
 //                CGlobal::instance()->saveKeyId(OBJT_Device, device->keyId()),"右向");
 //    //服务端上传灯具指向
-//    CGlobal::instance()->ClientBusiness()->serverLampDirectionUpload(
-//                CGlobal::instance()->saveKeyId(OBJT_Device, device->keyId()),"右向");
-    CGlobal::instance()->ClientBusiness()->exeCommand(NCT_DeviceDirection, &msgobjectstatus);
+//    CGlobal::instance()->ClientBusiness()->server_LampDirectionUpload(
+//                CGlobal::instance()->saveKeyId(OBJT_Device, m_device->keyId()),"右向");
+//    CGlobal::instance()->ClientBusiness()->exeCommand(NCT_DeviceDirection, &msgobjectstatus);
 
     //布局视图界面灯具状态更新
     CGlobal::instance()->designSplashView()->setPageStateUpdate(true);

@@ -11,7 +11,7 @@ Widget::Widget(QWidget *parent)
     CGlobal::instance()->loginInformation()->hide();
     CGlobal::instance()->setStatusTabs(new CStatusTabs());
     CGlobal::instance()->setClientBusiness(new CClientBusiness);
-    CGlobal::instance()->setProcessServer(new CprocessServer);
+//    CGlobal::instance()->setProcessServer(new CprocessServer);
     CGlobal::instance()->setProcessSocket(new CprocessSocket);
     CGlobal::instance()->setInformationWindow(new dlgInformationWindow);
     CGlobal::instance()->setDlgDevices(new dlgDevices);
@@ -64,8 +64,9 @@ Widget::Widget(QWidget *parent)
     mainLayout->addWidget(bottomBox);
     createTimer();
     setGeometry(0,0,QApplication::desktop()->screen()->width(), QApplication::desktop()->screen()->height());
-    setWindowFlags(Qt::CustomizeWindowHint | Qt::FramelessWindowHint); // ??????
+    setWindowFlags(Qt::CustomizeWindowHint | Qt::FramelessWindowHint);
     this->hide();
+    startProcessTcpServer();
 }
 
 Widget::~Widget()
@@ -76,6 +77,50 @@ Widget::~Widget()
     CGlobal::instance()->setProcessServer(NULL);
     CGlobal::instance()->m_widget = NULL;
     CGlobal::destroy();
+}
+
+void Widget::startProcessTcpServer()
+{
+    // 创建tcpServer服务器
+    m_tcpServer = new QTcpServer;
+
+    // 创建tcpServer服务器线程
+    m_tcpServerThread = new QThread;
+    m_processServer = new CprocessServer(m_tcpServer);
+    m_processServer->moveToThread(m_tcpServerThread);
+    // 启动tcpServer服务器线程
+    m_tcpServerThread->start();
+    connect(CGlobal::instance()->ClientBusiness(), SIGNAL(serverDistributionSoftwareInfo(CDistribution*)),
+            m_processServer, SLOT(slot_serverDistributionSoftwareInfo(CDistribution*)));
+    connect(CGlobal::instance()->ClientBusiness(), SIGNAL(serverDistributionRealtimeData(CDistribution*)),
+            m_processServer, SLOT(slot_serverDistributionRealtimeData(CDistribution*)));
+    connect(CGlobal::instance()->ClientBusiness(), SIGNAL(serverLampSoftwareInfo(int,int,int)),
+            m_processServer, SLOT(slot_serverLampSoftwareInfo(int,int,int)));
+    connect(CGlobal::instance()->ClientBusiness(), SIGNAL(serverHostStateUpload(CController*)),
+            m_processServer, SLOT(slot_serverHostStateUpload(CController*)));
+    connect(CGlobal::instance()->ClientBusiness(), SIGNAL(serverCentralizedPowerStateUpload(CDistribution*)),
+            m_processServer, SLOT(slot_serverCentralizedPowerStateUpload(CDistribution*)));
+    connect(CGlobal::instance()->ClientBusiness(), SIGNAL(serverLampStateUpload(CDevice*)),
+            m_processServer, SLOT(slot_serverLampStateUpload(CDevice*)));
+    connect(CGlobal::instance()->ClientBusiness(), SIGNAL(serverLampDirectionUpload(int,QString)),
+            m_processServer, SLOT(slot_serverLampDirectionUpload(int,QString)));
+
+    connect(CGlobal::instance()->ClientBusiness(), SIGNAL(serverResetDeclareUpload()),
+            m_processServer, SLOT(slot_serverResetDeclareUpload()));
+    connect(CGlobal::instance()->ClientBusiness(), SIGNAL(serverEmergencyInputUpload()),
+            m_processServer, SLOT(slot_serverEmergencyInputUpload()));
+    connect(CGlobal::instance()->ClientBusiness(), SIGNAL(serverManualLaunchUpload()),
+            m_processServer, SLOT(slot_serverManualLaunchUpload()));
+    connect(CGlobal::instance()->ClientBusiness(), SIGNAL(serverFirePointWarningUpload(int,int,int)),
+            m_processServer, SLOT(slot_serverFirePointWarningUpload(int,int,int)));
+
+    connect(m_processServer, SIGNAL(exeCommand(int,CMsgStructBase*)) ,
+            CGlobal::instance()->ClientBusiness(), SLOT(slot_exeCommand(int,CMsgStructBase*)));
+    connect(m_processServer, SIGNAL(performLaunch(int)) ,
+            CGlobal::instance()->ClientBusiness(), SLOT(slot_PerformLaunch(int)));
+    connect(m_processServer, SIGNAL(performReset()) ,
+            CGlobal::instance()->ClientBusiness(), SLOT(slot_PerformReset()));
+
 }
 
 void Widget::closeEvent(QCloseEvent *event)

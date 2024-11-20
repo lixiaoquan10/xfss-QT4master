@@ -560,11 +560,13 @@ void CTopToolBar::slotResetSystem()
         //复位声明上传到云平台
         CGlobal::instance()->ClientBusiness()->XmlResetDeclare();
     }
-    if(CGlobal::instance()->processServer()->m_isMasterConnected)
-    {
-        //复位声明上传到客户端
-        CGlobal::instance()->ClientBusiness()->serverResetDeclareUpload();
-    }
+    //复位声明上传到客户端
+    CGlobal::instance()->ClientBusiness()->server_ResetDeclareUpload();
+//    if(CGlobal::instance()->processServer()->m_isMasterConnected)
+//    {
+//        //复位声明上传到客户端
+//        CGlobal::instance()->ClientBusiness()->serverResetDeclareUpload();
+//    }
     //灯具状态复位
     QTimer::singleShot(4000, CGlobal::instance()->ClientBusiness(), SLOT(DeviceResetStatus()));
     QTimer::singleShot(10000, CGlobal::instance()->ClientBusiness(), SLOT(DeviceDefaultResetStatus()));
@@ -613,11 +615,13 @@ void CTopToolBar::resetSystem()
         //复位声明上传到云平台
         CGlobal::instance()->ClientBusiness()->XmlResetDeclare();
     }
-    if(CGlobal::instance()->processServer()->m_isMasterConnected)
-    {
-        //复位声明上传到客户端
-        CGlobal::instance()->ClientBusiness()->serverResetDeclareUpload();
-    }
+    //复位声明上传到客户端
+    CGlobal::instance()->ClientBusiness()->server_ResetDeclareUpload();
+//    if(CGlobal::instance()->processServer()->m_isMasterConnected)
+//    {
+//        //复位声明上传到客户端
+//        CGlobal::instance()->ClientBusiness()->serverResetDeclareUpload();
+//    }
     //灯具状态复位
     QTimer::singleShot(4000, CGlobal::instance()->ClientBusiness(), SLOT(DeviceResetStatus()));
     QTimer::singleShot(10000, CGlobal::instance()->ClientBusiness(), SLOT(DeviceDefaultResetStatus()));
@@ -825,11 +829,13 @@ void CTopToolBar::slotStart()
             //上传手动应急到云平台
             CGlobal::instance()->ClientBusiness()->XmlManualLaunchUpload();
         }
-        if(CGlobal::instance()->processServer()->m_isMasterConnected)
-        {
-            //服务端上传手动应急
-            CGlobal::instance()->ClientBusiness()->serverManualLaunchUpload();
-        }
+        //服务端上传手动应急
+        CGlobal::instance()->ClientBusiness()->server_ManualLaunchUpload();
+//        if(CGlobal::instance()->processServer()->m_isMasterConnected)
+//        {
+//            //服务端上传手动应急
+//            CGlobal::instance()->ClientBusiness()->serverManualLaunchUpload();
+//        }
     }
     m_btnManageTool->setChecked(true);
 }
